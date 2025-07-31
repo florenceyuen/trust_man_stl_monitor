@@ -1,0 +1,106 @@
+[
+  [
+    {
+      "timestamp": 0.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "robustness": 19.144975054610356,
+      "status": "success"
+    },
+    {
+      "timestamp": 28.6,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "robustness": 19.144975054610356,
+      "status": "success"
+    }
+  ],
+  [
+    {
+      "timestamp": 0.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -10.788808084552379,
+      "status": "violation"
+    },
+    {
+      "timestamp": 2.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 3.9000000000000004,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 7.9,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 10.5,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 13.7,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -6.968866429415716,
+      "status": "violation"
+    },
+    {
+      "timestamp": 18.8,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -6.509698083930118,
+      "status": "violation"
+    },
+    {
+      "timestamp": 21.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 21.4,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -5.0,
+      "status": "violation"
+    },
+    {
+      "timestamp": 24.6,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": -6.323820648373907,
+      "status": "violation"
+    },
+    {
+      "timestamp": 29.7,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": 11.416422198187865,
+      "status": "success"
+    },
+    {
+      "timestamp": 30.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "robustness": 12.996901205910087,
+      "status": "success"
+    }
+  ],
+  [],
+  []
+]

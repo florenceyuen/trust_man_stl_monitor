@@ -30,6 +30,14 @@ STL_PROPERTY_FORMULAS = {
         "  speed <= 100"
         "))",
     },
+    "speed_always": {
+        "id": 4,
+        "formula": "out=always[0:5](speed >= -20 and speed <=20)",
+    },
+    "speed_always_2": {
+        "id": 5,
+        "formula": "out=always[0:5](speed >= -90 and speed <=90)",
+    },
     "acc": {
         "id": 1,
         "formula": "out=always[0:5](acceleration >= -20 and acceleration <=20)",
@@ -211,13 +219,6 @@ class DenseSTLMonitor(STLMonitor):
         spec.declare_var('out', 'float')    # Output signal (formula result)
         spec.set_var_io_type('out', 'output')
         
-        # Dynamically declare all input variables read from csv file
-        stl_formula = self.dyn_build_formula(data)
-
-        # Write STL formula (all properties)
-        # spec.stl_formula = STL_PROPERTY_FORMULAS["all"]["formula"]
-        # first 15 seconds, initial positions and swap on x and y axis for benchmark, position always halfway mark, and then toggle when change platoon leader
-
         # STL formulas for two properties (e.g. speed, position), simultaneously check violations
         stl_formula2 = STL_PROPERTY_FORMULAS["speed"]["formula"]
         
@@ -291,7 +292,7 @@ class DenseSTLMonitor(STLMonitor):
             })
 
             self.logger.info(f"[car-{vehicle_id}] Time={timestamp}s: robustness={robustness:.2f} → {status}")   
-
+        
         self.logger.info(f"\n")
         return results_list
     
@@ -390,7 +391,7 @@ def init_logger():
 
 def main(args=None):
     logger = init_logger()
-    filename = "discrete_stl_data.csv"
+    filename = "stl_test_data.csv"
     
     MonitorNode(logger, filename)
 
