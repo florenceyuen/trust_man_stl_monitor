@@ -1,0 +1,104 @@
+[
+  [
+    {
+      "timestamp": 0.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "status": "success"
+    },
+    {
+      "timestamp": 6.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "status": "success"
+    },
+    {
+      "timestamp": 24.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "status": "success"
+    },
+    {
+      "timestamp": 30.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 0,
+      "status": "success"
+    }
+  ],
+  [
+    {
+      "timestamp": 0.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "violation"
+    },
+    {
+      "timestamp": 2.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "violation"
+    },
+    {
+      "timestamp": 4.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "violation"
+    },
+    {
+      "timestamp": 5.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 6.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 7.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 10.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 16.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 20.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 23.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    },
+    {
+      "timestamp": 24.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "violation"
+    },
+    {
+      "timestamp": 30.0,
+      "vehicle_id": 0,
+      "stl_spec_id": 1,
+      "status": "success"
+    }
+  ],
+  [],
+  []
+]

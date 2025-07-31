@@ -8,24 +8,27 @@ No ros version
 
 pip install rtamt: installation
 """
+
 # Import and initialize a specification
 import rtamt
-# import rclpy
-# from rclpy.node import Node
-# from std_msgs.msg import String, Float32MultiArray
+import logging
+import sys
+import os
+import json
 
 import csv
-from .properties import Property
+from properties import Property
+LOG_LEVEL = logging.DEBUG
 
 # list of stl proprties and their formulas
 STL_PROPERTY_FORMULAS = {
     "speed": {
         "id": 0,
-        "formula": 'out = always(('
-            '  (speed > 100)'
-            ') implies eventually[0:5]('
-            '  speed <= 100'
-            '))',
+        "formula": "out = always(("
+        "  (speed > 100)"
+        ") implies eventually[0:5]("
+        "  speed <= 100"
+        "))",
     },
     "acc": {
         "id": 1,
@@ -33,71 +36,75 @@ STL_PROPERTY_FORMULAS = {
     },
     "xpos": {
         "id": 2,
-        "formula": 'out = always(('
-            '  (x < 0 or x > 600)'
-            ') implies eventually[0:5]('
-            '  x >= 0 and x <= 600'
-            '))'
+        "formula": "out = always(("
+        "  (x < 0 or x > 600)"
+        ") implies eventually[0:5]("
+        "  x >= 0 and x <= 600"
+        "))",
     },
     "all": {
         "id": 3,
-        "formula": 'out = always(('
-            '  (speed > 100 or acceleration < -20 or acceleration > 20 or x < 0 or x > 600)'
-            ') implies eventually[0:5]('
-            '  speed <= 100 and acceleration >= -20 and acceleration <= 20 and x >= 0 and x <= 600'
-            '))',
+        "formula": "out = always(("
+        "  (speed > 100 or acceleration < -20 or acceleration > 20 or x < 0 or x > 600)"
+        ") implies eventually[0:5]("
+        "  speed <= 100 and acceleration >= -20 and acceleration <= 20 and x >= 0 and x <= 600"
+        "))",
     },
 }
 
-stl_thresholds={
-    'speed': {'max': 100},  # speed (m/s)
-    'acceleration':{'min': -20,'max': 20}, # for violation: -5},
-    'x':{'min': 0,'max': 600},  # x position
-    'y':{'min': 0,'max': 500},  # y position
-    'angle': {'min': 0, 'max': 20},  # steering angle
-    'window_time': 5, # seconds for each violation window
+stl_thresholds = {
+    "speed": {"max": 100},  # speed (m/s)
+    "acceleration": {"min": -20, "max": 20},  # for violation: -5},
+    "x": {"min": 0, "max": 600},  # x position
+    "y": {"min": 0, "max": 500},  # y position
+    "angle": {"min": 0, "max": 20},  # steering angle
+    "window_time": 5,  # seconds for each violation window
 }
 
-class STLMonitor():
+
+class STLMonitor:
     """
     Base STL monitor class used by discrete and dense stl specifications
     """
-    def __init__(self):    
+
+    def __init__(self):
         # Define the STL specification
         self.spec = self.init_spec()
-        
+
     def init_spec(self):
-        raise NotImplementedError("Child class must override init_spec function")    
-            
-    def load_data_from_csv(self, filename='discrete_stl_data.csv'):
+        raise NotImplementedError("Child class must override init_spec function")
+
+    def load_data_from_csv(self, filename="discrete_stl_data.csv"):
         """
         Dynamically read the csv column names
         """
 
-        data = {} # dict to store data based on column name
+        data = {}  # dict to store data based on column name
 
         # Reads the timestamp and variable data from CSV, returns as list of tuples
         try:
-            with open(filename, mode='r') as file:
+            with open(filename, mode="r") as file:
                 reader = csv.DictReader(file)
-                headers = reader.fieldnames # get the list of column names from csv file
+                headers = (
+                    reader.fieldnames
+                )  # get the list of column names from csv file
 
-                if not headers: 
+                if not headers:
                     print(f"No headers found in '{filename}'")
                     return {}
 
-                if 'time' not in headers: # make sure there is a time column
+                if "time" not in headers:  # make sure there is a time column
                     print(f"'time' column missing from '{filename}'")
                     return {}
-                
+
                 # initialize lists for each column in csv file except 'time'
                 for header in headers:
-                    if header != 'time':
+                    if header != "time":
                         data[header] = []
 
                 for row in reader:
                     try:
-                        time = float(row['time'])
+                        time = float(row["time"])
                         for header in data:
                             value = float(row[header])
                             data[header].append((time, value))
@@ -106,61 +113,62 @@ class STLMonitor():
         except FileNotFoundError:
             print(f"File '{filename}' not found.")
             return {}
-        
+
         except Exception as e:
             print(f"Error reading '{filename}': {e}")
             return {}
-        
+
         return data
-            
+
+
 class DiscreteSTLMonitor(STLMonitor):
-    def init_spec(self):    
+    def init_spec(self):
         # Define the STL specification
         spec = rtamt.StlDiscreteTimeSpecification()
-        spec.name = 'Car Speed Monitor (Discrete Time)'
+        spec.name = "Car Speed Monitor (Discrete Time)"
 
         # Declare input/ output signals (speed, acceleration)
-        spec.declare_var('speed', 'float')  # Input signal
-        spec.declare_var('acc', 'float') # Accerleration
-        spec.declare_var('pos', 'float')  # Position
-        spec.declare_var('out', 'float')    # Output signal (formula result)
-        spec.set_var_io_type('out', 'output')
-        spec.set_var_io_type('speed', 'input')
-        spec.set_var_io_type('acc', 'input')
-        spec.set_var_io_type('pos', 'input')
+        spec.declare_var("speed", "float")  # Input signal
+        spec.declare_var("acc", "float")  # Accerleration
+        spec.declare_var("pos", "float")  # Position
+        spec.declare_var("out", "float")  # Output signal (formula result)
+        spec.set_var_io_type("out", "output")
+        spec.set_var_io_type("speed", "input")
+        spec.set_var_io_type("acc", "input")
+        spec.set_var_io_type("pos", "input")
 
         # Write STL formula
         # self.spec.spec = 'out = always[0:5](speed <= 100)' # speed is always less than 100 for the first 5 seconds
         spec.spec = (
-            'out = always[0,5]('
-            'speed <= 100 and '             # speed is always less than 100 for the first 30 seconds
-            'acc >= -20 and acc <= 20 and '
-            'pos >= 0 and pos <= 600)'
+            "out = always[0,5]("
+            "speed <= 100 and "  # speed is always less than 100 for the first 30 seconds
+            "acc >= -20 and acc <= 20 and "
+            "pos >= 0 and pos <= 600)"
         )
 
         # Parse the formula to make it ready to use
         spec.parse()
         return spec
-    
-    def evaluate_signals(self, speed_data, acc_data, pos_data):
-        
+
+    def evaluate_single_prop(self, speed_data, acc_data, pos_data):
+
         time_data = [t for t, _ in speed_data]  # extract time list
         speed_values = [v for _, v in speed_data]
         acc_values = [v for _, v in acc_data]
         pos_values = [v for _, v in pos_data]
-        
+
         print("time_data [0:3] samples:", time_data[:3])
         print("Speed_values [0:3] samples:", speed_values[:3])
         print("acc_values [0:3] samples:", acc_values[:3])
         print("pos_values [0:3] samples:", pos_values[:3])
 
         dataset = {
-            'time': time_data,
-            'speed': speed_values,
-            'acc': acc_values,
-            'pos': pos_values
+            "time": time_data,
+            "speed": speed_values,
+            "acc": acc_values,
+            "pos": pos_values,
         }
-       
+
         print("Dataset keys:", dataset.keys())
 
         # try:
@@ -174,127 +182,218 @@ class DiscreteSTLMonitor(STLMonitor):
             status = "success" if robustness >= 0 else "violation"
             print(f"Time {timestamp}s: robustness={robustness:.2f} → {status}")
 
-        
-    
+
 class DenseSTLMonitor(STLMonitor):
     """
     STL monitor using dense time specification
     """
-    def init_spec(self):    
+    def __init__(self, logger=None):    
+        self.logger=logger
+        self.name = 'Car Speed Monitor (Dense Time)'
+
+    def define_spec(self, data):
         # Define the STL specification
         spec = rtamt.StlDenseTimeSpecification()
-        spec.name = 'Car Speed Monitor (Dense Time)'
+        spec.name = self.name
+        
+        # Declare variables dynamically from Property class
+        for var, dtype in Property.headings.items():
+            if var == "time" or var == "device_id":  # Skip time since rtamt handles it separately and device_id
+                continue
 
-        # Declare input/ output signals (speed, acceleration)
-        spec.declare_var('speed', 'float')  # Input signal
-        spec.declare_var('acc', 'float') # Accerleration
-        spec.declare_var('pos', 'float')  # Position
+            # Use type for each property
+            spec.declare_var(var, dtype)
+            spec.set_var_io_type(var, 'input')
+
+            self.logger.info(f"Declared variable: {var} ({dtype})")
+
+        # Declare output signal
         spec.declare_var('out', 'float')    # Output signal (formula result)
         spec.set_var_io_type('out', 'output')
-        spec.set_var_io_type('speed', 'input')
-        spec.set_var_io_type('acc', 'input')
-        spec.set_var_io_type('pos', 'input')
-
-        # Write STL formula
-        # spec.spec = (
-        #     'out = always[0,30]('
-        #     'speed <= 100 and '             # speed is always less than 100 for the first 30 seconds
-        #     'acc >= -20 and acc <= 20 and '
-        #     'pos >= 0 and pos <= 600)'
-        # )
         
+        # Dynamically declare all input variables read from csv file
+        stl_formula = self.dyn_build_formula(data)
+
+        # Write STL formula (all properties)
+        # spec.stl_formula = STL_PROPERTY_FORMULAS["all"]["formula"]
+        # first 15 seconds, initial positions and swap on x and y axis for benchmark, position always halfway mark, and then toggle when change platoon leader
+
+        # STL formulas for two properties (e.g. speed, position), simultaneously check violations
+        stl_formula2 = STL_PROPERTY_FORMULAS["speed"]["formula"]
+        
+        # Write default STL formula
         spec.spec = (
-            'out = always(('
-            '  (speed > 100 or acc < -20 or acc > 20 or pos < 0 or pos > 600)'
-            ') implies eventually[0:5]('
-            '  speed <= 100 and acc >= -20 and acc <= 20 and pos >= 0 and pos <= 600'
-            '))'
+            stl_formula2
         )
 
         # Parse the formula to make it ready to use
         spec.parse()
-        return spec
-
-    def evaluate_signals(self, speed_data, acc_data, pos_data):        
-        # Evaluate the signal against the STL rule/ formula
-        result = self.spec.evaluate(
-            ['speed', speed_data],
-            ['acc', acc_data],
-            ['pos', pos_data]
-        )
+        self.spec = spec
         
-        # Display the robustness values and whether speed was exceeded
-        print("Time\tRobustness")
-        # self.get_logger().info("Time\tRobustness")
+    def evaluate_all_signals(self, data, vehicle_id=0, output_file='stl_results/stl_results.json'): 
+        """
+        Evaluate all stl properties listed in dictionary
+        """
+
+        results_list = []
+        # Evaluate every STL property
+        for property_name, property_info in STL_PROPERTY_FORMULAS.items():
+            try:
+                # Update spec name
+                self.spec.name = f"{self.name} - {property_name}"
+
+                # Display the which property is being evaluated, robustness values and whether property was violated
+                if self.logger is not None:
+                    self.logger.info(f"{self.spec.name}")
+                    self.logger.info(f"Time\tRobustness")
+
+                # Assign formula for that property
+                self.spec.spec = property_info['formula']
+                self.spec.parse()
+
+                results_list.append(self.evaluate_single_prop(data, property_info['id'], vehicle_id, output_file))
+            except Exception as e:
+                if self.logger:
+                    self.logger.error(f"Failed to evaluate STL property '{property_name}' id: {property_info['id']}: {e}")
+        
+        return results_list
+
+    def evaluate_single_prop(self, data, spec_id=0, vehicle_id=0, output_file='stl_results/stl_results.json'): 
+        """
+        Evaluates one stl property and appends to output json
+        """
+        # Evaluate the signal against the STL rule/ formula
+        input_signals = []
+        for var, value in data.items():
+            input_signals.append([var, value])
+            
+        try:
+            result = self.spec.evaluate(*input_signals) # use unpacking operator
+        except Exception as e:
+            if self.logger is not None:
+                self.logger.error(f"Failed to evaluate STL (car {vehicle_id}): {e}")
+            return []
+        
+        # Update so runs on memory
+        results_list=[]
+
+        # TODO: Output last 10 seconds to separate location, temp write to a file
         for timestamp, robustness in result:
             status = "success" if robustness >= 0 else "violation"
-            print(f"Time {timestamp}s: robustness={robustness:.2f} → {status}")
-            # self.get_logger().info(f"Time {timestamp}s: robustness={robustness:.2f} → {status}")
+
+            # Add timestamp entry and satisfaction to JSON list
+            results_list.append({
+                "timestamp": float(timestamp),
+                "vehicle_id": int(vehicle_id),
+                "stl_spec_id": int(spec_id),    # index of stl property from dict
+                "robustness": float(robustness), # stl property id, add rosbag and eval on that 
+                "status": status,
+            })
+
+            self.logger.info(f"[car-{vehicle_id}] Time={timestamp}s: robustness={robustness:.2f} → {status}")   
+
+        self.logger.info(f"\n")
+        return results_list
     
-
-# class MonitorNode(Node):
-class MonitorNode():
-    def __init__(self, monitor_type='discrete'): # default is discrete time
-        super(MonitorNode, self).__init__('monitor_node')
-
-        # super().__init__('Monitor_node')
-        # self.get_logger().info("Monitor Node started.\n")
-        # self.serial_pu = self.create_publisher(Float32MultiArray, 'command', 10)
-
-        # Subscription to topic with speed data
-        # self.subscription = self.create_subscription(
-        #     Float32MultiArray,         
-        #     'car_speed',
-        #     self.speed_callback,
-        #     10
-        # )        
-        # self.error_pub = self.create_publisher(String, 'error', 10)
-        self.monitors = {} # TODO: map to the car id for the STLMonitor instance
-        
-         # Select which STL monitor to use (discrete or dense)
-        if monitor_type == 'dense':
-            self.monitor = DenseSTLMonitor(self.get_logger())
-            print("Using Dense Time Specification")
-            # self.get_logger().info("Using Dense Time Specification")
+    def write_json(self, results_list, output_file='stl_result/stl_results.json'):
+        # Load the existing data if the file already exists
+        if os.path.exists(output_file):
+            with open(output_file, 'r') as file:
+                existing_data = json.load(file)
         else:
-            self.monitor = DiscreteSTLMonitor(self.get_logger())
-            # self.get_logger().info("Using Discrete Time Specification")
-        
-        speed_data, acc_data, pos_data = self.load_data_from_csv('discrete_stl_data.csv')
-        
-        # Feed in test signal data for speed (time, value), acceleration, and position
-        self.monitor.evaluate_signals(speed_data, acc_data, pos_data)
-    
+            existing_data=[]
 
+        existing_data.extend(results_list)
+
+        try:
+            with open(output_file, 'w') as file:
+                json.dump(existing_data, file, indent=2)
+                self.logger.info(f"STL result saved to {output_file}")
+        except Exception as e:
+            self.logger.error(f"Error writing JSON file: {e}")
+    
+    def dyn_build_formula(self, data):
+        violations = []
+        goal = []
+
+        for var, rules in stl_thresholds.items():
+            if var == 'window_time':
+                continue
+            if var not in data:
+                self.logger.warn(f"Warning: Variable '{var}' is missing from csv file, skipping in formula")
+                continue
+            if 'min' in rules:
+                violations.append(f'{var} < {rules["min"]}')
+                goal.append(f'{var} >= {rules["min"]}')
+            if 'max' in rules:
+                violations.append(f'{var} > {rules["max"]}')
+                goal.append(f'{var} <= {rules["max"]}')
+        
+        violation_formula = ' or '. join(violations)
+        recovery_formula = ' and '.join(goal)
+        window_time = stl_thresholds.get('window_time', 5) # fallback default value in case not defined
+
+        stl_formula = f'out = always(({violation_formula}) implies eventually[0:{window_time}]({recovery_formula}))'
+
+        self.logger.info(f"STL formula: {stl_formula}")
+        return stl_formula     
+    
+# class MonitorNode(Node):
+class MonitorNode:
+    MONITOR_TYPE="dense" # default is dense time
+    def __init__(self, logger, filename, monitor_type=MONITOR_TYPE):  # default is discrete time
+        self.logger=logger
+        self.logger.info("Monitor Node started.\n")
+        self.monitor_type=monitor_type 
+
+        self.logger.info(f"Using {self.monitor_type} Time Specification")
+
+         # Select which STL monitor to use (discrete or dense)
+        if self.monitor_type == 'dense':
+            self.monitor = DenseSTLMonitor(self.logger)
+        else:
+            self.monitor = DiscreteSTLMonitor()
+            
+        self.logger.info(f"Opening file path: {filename}")
+        data = self.monitor.load_data_from_csv(filename)
+        
+        self.spec = self.monitor.define_spec(data)
+
+        # Feed in test signal data for speed (time, value), acceleration, and position
+        results_list = []
+        results_list = self.monitor.evaluate_all_signals(data)
+        
+        self.output_file_path = 'stl_result/stl_results.json'
+        
+        # Create the parent directory if it doesn't already exist
+        os.makedirs(os.path.dirname(self.output_file_path), exist_ok=True)
+
+        # Create file if doesn't exist and overwrite if already exists
+        with open(self.output_file_path, 'w') as file:
+            json.dump([], file, indent=2) # Initialize file with empty list
+        self.monitor.write_json(results_list)
+
+def init_logger():
+    # Initialize the log handler
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(LOG_LEVEL)
+
+    # Specify the log format
+    formatter = logging.Formatter("%(asctime)s %(levelname)s [%(filename)s:%(lineno)d] %(message)s")
+    handler.setFormatter(formatter)
+
+    # Initialize the root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(LOG_LEVEL)
+    root_logger.addHandler(handler)
+    return root_logger
 
 def main(args=None):
-    # rclpy.init(args=args)
-    # global minimal_publisher
-    filename = 'discrete_stl_data.csv'
+    logger = init_logger()
+    filename = "discrete_stl_data.csv"
     
-    # Set specification type, use 'dense' for DenseSTLMonitor
-    monitor_type = 'dense'
-    print(f"Using {monitor_type} Time Specification")
-    
-    # Select which STL monitor to use (discrete or dense)
-    if monitor_type == 'dense':
-        monitor = DenseSTLMonitor()
-    else:
-        monitor = DiscreteSTLMonitor()
-           
-    speed_data, acc_data, pos_data = monitor.load_data_from_csv(filename)
-        
-    # Feed in test signal data for speed (time, value), acceleration, and position
-    monitor.evaluate_signals(speed_data, acc_data, pos_data)
-    
-    
-    # minimal_publisher = MonitorNode(monitor_type)
+    MonitorNode(logger, filename)
 
-    # rclpy.spin(minimal_publisher)
-
-    # minimal_publisher.destroy_node()
-    # rclpy.shutdown()
 
 if __name__ == "__main__":
     main()
-
