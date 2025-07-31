@@ -306,8 +306,7 @@ class DenseSTLMonitor(STLMonitor):
 
         return results_list
 
-
-    def evaluate_single_prop(self, data, spec_id=0, vehicle_id=0, output_file='stl_results/stl_results.json'): 
+    def evaluate_single_prop(self, data, spec_id=0, vehicle_id=0, output_file='stl_results/stl_results.json', return_first_only = True): 
         """
         Evaluates one stl property and appends to output json
         """
@@ -319,6 +318,7 @@ class DenseSTLMonitor(STLMonitor):
         # self.logger.info(f"Input signals {input_signals}")
         try:
             result = self.spec.evaluate(*input_signals) # use unpacking operator
+                
         except Exception as e:
             if self.logger is not None:
                 self.logger.error(f"Failed to evaluate STL (car {vehicle_id}): {e}")
@@ -326,26 +326,36 @@ class DenseSTLMonitor(STLMonitor):
         
         # Update so runs on memory
         results_list=[]
+        
+        # Get the start time of the window to offset the internal timestamps
+        try:
+            # Find min timestamp among all signals in current window
+            time_offset = min(t[0] for v in data.values() for t in v)
+        except:
+            time_offset = 0
 
         # TODO: Output last 10 seconds to separate location, temp write to a file
-        for timestamp, robustness in result:
+        for i, (timestamp, robustness) in enumerate(result):
+            if return_first_only and i > 0:
+                break
+            actual_time = timestamp + time_offset
             status = "success" if robustness >= 0 else "violation"
 
             # Add timestamp entry and satisfaction to JSON list
             results_list.append({
-                "timestamp": float(timestamp),
+                "timestamp": float(actual_time),
                 "vehicle_id": int(vehicle_id),
                 "stl_spec_id": int(spec_id),    # index of stl property from dict
                 "robustness": float(robustness), # stl property id, add rosbag and eval on that 
                 "status": status,
             })
 
-            self.logger.info(f"[car-{vehicle_id}] Time={timestamp}s: robustness={robustness:.2f} → {status}")   
-        
+            self.logger.info(f"[car-{vehicle_id}] Time={actual_time:.2f}s: robustness={robustness:.2f} → {status}")   
+
         self.logger.info(f"\n")
         return results_list
     
-    def write_json(self, results_list, output_file='stl_result/rolling_window.json'):
+    def write_json(self, results_list, output_file='stl_result/stl_rolling_window.json'):
         # Load the existing data if the file already exists
         if os.path.exists(output_file):
             with open(output_file, 'r') as file:
