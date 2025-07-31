@@ -7,6 +7,15 @@ Uses rtamt package which defines STL formulas, applies onto signals, and returns
 No ros version
 
 pip install rtamt: installation
+
+Evaluation:
+- rtamt only evaluates at timepoints where it detects a change or new result instead of a fixed period schedule especially for dense-time
+- if data points include 0, 0.1, 0.2, ..., 30.0, rtamt won't evaluate on every point
+- evaluates at critical timestamps where:
+    - robustness changes e.g. signal crosses threshold property
+    - robustness window opens/ closes
+- evalutates continuously on a moving window but if the window is for example 5, it will only evaluate at 0, 5, 10,... if it si forced to evaluate
+    - else it does it at critical points instead
 """
 
 # Import and initialize a specification
@@ -22,42 +31,42 @@ LOG_LEVEL = logging.DEBUG
 
 # list of stl proprties and their formulas
 STL_PROPERTY_FORMULAS = {
-    "speed": {
-        "id": 0,
-        "formula": "out = always(("
-        "  (speed > 100)"
-        ") implies eventually[0:5]("
-        "  speed <= 100"
-        "))",
-    },
-    "speed_always": {
-        "id": 4,
-        "formula": "out=always[0:5](speed >= -20 and speed <=20)",
-    },
+    # "speed": {
+    #     "id": 0,
+    #     "formula": "out = always(("
+    #     "  (speed > 100)"
+    #     ") implies eventually[0:5]("
+    #     "  speed <= 100"
+    #     "))",
+    # },
+    # "speed_always": {
+    #     "id": 4,
+    #     "formula": "out=always[0:5](speed >= -20 and speed <=20)",
+    # },
     "speed_always_2": {
         "id": 5,
         "formula": "out=always[0:5](speed >= -90 and speed <=90)",
     },
-    "acc": {
-        "id": 1,
-        "formula": "out=always[0:5](acceleration >= -20 and acceleration <=20)",
-    },
-    "xpos": {
-        "id": 2,
-        "formula": "out = always(("
-        "  (x < 0 or x > 600)"
-        ") implies eventually[0:5]("
-        "  x >= 0 and x <= 600"
-        "))",
-    },
-    "all": {
-        "id": 3,
-        "formula": "out = always(("
-        "  (speed > 100 or acceleration < -20 or acceleration > 20 or x < 0 or x > 600)"
-        ") implies eventually[0:5]("
-        "  speed <= 100 and acceleration >= -20 and acceleration <= 20 and x >= 0 and x <= 600"
-        "))",
-    },
+    # "acc": {
+    #     "id": 1,
+    #     "formula": "out=always[0:5](acceleration >= -20 and acceleration <=20)",
+    # },
+    # "xpos": {
+    #     "id": 2,
+    #     "formula": "out = always(("
+    #     "  (x < 0 or x > 600)"
+    #     ") implies eventually[0:5]("
+    #     "  x >= 0 and x <= 600"
+    #     "))",
+    # },
+    # "all": {
+    #     "id": 3,
+    #     "formula": "out = always(("
+    #     "  (speed > 100 or acceleration < -20 or acceleration > 20 or x < 0 or x > 600)"
+    #     ") implies eventually[0:5]("
+    #     "  speed <= 100 and acceleration >= -20 and acceleration <= 20 and x >= 0 and x <= 600"
+    #     "))",
+    # },
 }
 
 stl_thresholds = {
@@ -125,7 +134,7 @@ class STLMonitor:
         except Exception as e:
             print(f"Error reading '{filename}': {e}")
             return {}
-
+        print(f"data: {data}")
         return data
 
 
@@ -195,6 +204,8 @@ class DenseSTLMonitor(STLMonitor):
     """
     STL monitor using dense time specification
     """
+    current_time = 0
+    WINDOW_INTERVAL = 5
     def __init__(self, logger=None):    
         self.logger=logger
         self.name = 'Car Speed Monitor (Dense Time)'
@@ -220,7 +231,7 @@ class DenseSTLMonitor(STLMonitor):
         spec.set_var_io_type('out', 'output')
         
         # STL formulas for two properties (e.g. speed, position), simultaneously check violations
-        stl_formula2 = STL_PROPERTY_FORMULAS["speed"]["formula"]
+        stl_formula2 = STL_PROPERTY_FORMULAS["speed_always_2"]["formula"]
         
         # Write default STL formula
         spec.spec = (
@@ -230,34 +241,71 @@ class DenseSTLMonitor(STLMonitor):
         # Parse the formula to make it ready to use
         spec.parse()
         self.spec = spec
-        
-    def evaluate_all_signals(self, data, vehicle_id=0, output_file='stl_results/stl_results.json'): 
+     
+    def evaluate_all_signals(self, data, vehicle_id=0, output_file='stl_results/stl_results_rolling_window.json'):
         """
-        Evaluate all stl properties listed in dictionary
+        Evaluate all stl properties listed in dictionary using a sliding window of WINDOW_INTERVAL = 5 seconds
         """
-
         results_list = []
-        # Evaluate every STL property
+        start_time = min([t[0] for t in next(iter(data.values()))])
+        end_time = max([t[0] for t in next(iter(data.values()))])
+        step = 0.1
+        window_size = 5.0
+
         for property_name, property_info in STL_PROPERTY_FORMULAS.items():
             try:
                 # Update spec name
                 self.spec.name = f"{self.name} - {property_name}"
-
+                
                 # Display the which property is being evaluated, robustness values and whether property was violated
                 if self.logger is not None:
                     self.logger.info(f"{self.spec.name}")
                     self.logger.info(f"Time\tRobustness")
-
+                
                 # Assign formula for that property
-                self.spec.spec = property_info['formula']
+                self.spec.spec = property_info["formula"]
                 self.spec.parse()
 
-                results_list.append(self.evaluate_single_prop(data, property_info['id'], vehicle_id, output_file))
+                # evaluate each property using a rolling window
+                current_time = start_time
+                while current_time + window_size <= end_time:
+                    window_data = {}
+
+                    for var, values in data.items():
+                        window_data[var] = [
+                            (t, v)
+                            for t, v in values
+                            if current_time <= t <= current_time + window_size
+                        ]
+
+                    # Check if the next window has no data for any of the values, skip if it is missing
+                    if any(len(v) == 0 for v in window_data.values()):
+                        current_time += step
+                        continue 
+
+                    # print current window being evaluated
+                    self.logger.info(f"Current window: {current_time:.1f}s - {current_time + window_size:.1f}s")
+
+                    # evaluate stl property based on current window data and add to result list
+                    window_results = self.evaluate_single_prop(
+                        window_data,
+                        spec_id=property_info["id"],
+                        vehicle_id=vehicle_id,
+                        output_file=output_file,
+                    )
+                    results_list.extend(window_results)
+                    
+                    # Increment to next window
+                    current_time += step
+
             except Exception as e:
                 if self.logger:
-                    self.logger.error(f"Failed to evaluate STL property '{property_name}' id: {property_info['id']}: {e}")
-        
+                    self.logger.error(
+                        f"Failed to evaluate STL property '{property_name}' id: {property_info['id']}: {e}"
+                    )
+
         return results_list
+
 
     def evaluate_single_prop(self, data, spec_id=0, vehicle_id=0, output_file='stl_results/stl_results.json'): 
         """
@@ -268,6 +316,7 @@ class DenseSTLMonitor(STLMonitor):
         for var, value in data.items():
             input_signals.append([var, value])
             
+        # self.logger.info(f"Input signals {input_signals}")
         try:
             result = self.spec.evaluate(*input_signals) # use unpacking operator
         except Exception as e:
@@ -296,7 +345,7 @@ class DenseSTLMonitor(STLMonitor):
         self.logger.info(f"\n")
         return results_list
     
-    def write_json(self, results_list, output_file='stl_result/stl_results.json'):
+    def write_json(self, results_list, output_file='stl_result/rolling_window.json'):
         # Load the existing data if the file already exists
         if os.path.exists(output_file):
             with open(output_file, 'r') as file:
@@ -342,6 +391,7 @@ class DenseSTLMonitor(STLMonitor):
 # class MonitorNode(Node):
 class MonitorNode:
     MONITOR_TYPE="dense" # default is dense time
+
     def __init__(self, logger, filename, monitor_type=MONITOR_TYPE):  # default is discrete time
         self.logger=logger
         self.logger.info("Monitor Node started.\n")
@@ -391,7 +441,8 @@ def init_logger():
 
 def main(args=None):
     logger = init_logger()
-    filename = "stl_test_data.csv"
+    # filename = "stl_test_data.csv"
+    filename = "short_stl_test.csv"
     
     MonitorNode(logger, filename)
 
